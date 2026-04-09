@@ -60,6 +60,22 @@ export default async function handler(req, res) {
       ].join("\n"),
     });
 
+    await smtpTransport.sendMail({
+      from: process.env.SMTP_FROM,
+      to: email,
+      subject: "We received your Alloybazaar request",
+      text: [
+        `Hi ${name},`,
+        "",
+        "Thanks for reaching out to Alloybazaar. We have received your request and will get back to you soon.",
+        "",
+        "If you have any additional details to share, just reply to this email.",
+        "",
+        "Regards,",
+        "Alloybazaar Team",
+      ].join("\n"),
+    });
+
     return res.status(200).json({ ok: true });
   } catch (error) {
     return res.status(500).json({
