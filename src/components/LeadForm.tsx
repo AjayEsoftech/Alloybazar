@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 
@@ -17,6 +18,7 @@ const leadSchema = z.object({
     .min(8, "Please enter a valid mobile number.")
     .max(20, "Mobile number seems too long.")
     .regex(/^[0-9+\-\s()]+$/, "Use digits and basic phone symbols only."),
+  message: z.string().max(1000, "Please keep your message under 1000 characters.").optional(),
 });
 
 type LeadFormValues = z.infer<typeof leadSchema>;
@@ -31,6 +33,7 @@ const LeadForm = () => {
       role: "",
       email: "",
       mobile: "",
+      message: "",
     },
   });
 
@@ -144,7 +147,28 @@ const LeadForm = () => {
             )}
           />
 
-          <Button type="submit" className="w-full">
+          <FormField
+            control={form.control}
+            name="message"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Message / requirement (optional)</FormLabel>
+                <FormControl>
+                  <Textarea
+                    rows={4}
+                    placeholder="Tell us about the grade, size, quantity or any specific application."
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <Button
+            type="submit"
+            className="w-full rounded-full bg-amber-brand text-zinc-950 hover:bg-amber-300 font-bold shadow-md shadow-amber-brand/20"
+          >
             Submit &amp; Register Interest
           </Button>
 

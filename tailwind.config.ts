@@ -56,6 +56,11 @@ export default {
           "gray-text": "hsl(var(--im-gray-text))",
           border: "hsl(var(--im-border))",
         },
+        "amber-brand": {
+          DEFAULT: "hsl(34 92% 58%)",
+          light: "hsl(36 96% 66%)",
+          dark: "hsl(30 88% 50%)",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",

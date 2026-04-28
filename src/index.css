@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Open+Sans:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -7,43 +7,50 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 220 20% 15%;
+    --foreground: 215 30% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 20% 15%;
+    --card-foreground: 215 30% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 15%;
+    --popover-foreground: 215 30% 12%;
 
-    --primary: 240 52% 33%;
+    /* Kantstahl-style near-black for primary surfaces & buttons */
+    --primary: 220 12% 8%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 60% 95%;
-    --secondary-foreground: 240 52% 33%;
+    --secondary: 220 10% 95%;
+    --secondary-foreground: 220 12% 8%;
 
-    --muted: 220 20% 96%;
-    --muted-foreground: 220 10% 46%;
+    --muted: 215 20% 96%;
+    --muted-foreground: 215 15% 40%;
 
-    --accent: 36 100% 50%;
-    --accent-foreground: 0 0% 100%;
+    /* Forge / molten alloy amber — Kantstahl-style golden orange */
+    --accent: 34 90% 58%;
+    --accent-foreground: 0 0% 8%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 240 52% 33%;
+    --border: 215 18% 88%;
+    --input: 215 18% 88%;
+    --ring: 220 12% 8%;
 
     --radius: 0.5rem;
 
-    /* IndiaMART specific tokens */
-    --im-blue: 240 52% 33%;
-    --im-blue-light: 225 60% 50%;
-    --im-orange: 24 95% 53%;
-    --im-green: 145 63% 42%;
-    --im-gray-bg: 220 20% 97%;
-    --im-gray-text: 220 10% 40%;
-    --im-border: 220 15% 90%;
+    /* Alloybazaar brand tokens (alloy / steel palette) */
+    --im-blue: 215 60% 22%;
+    --im-blue-light: 210 70% 42%;
+    --im-orange: 34 90% 58%;
+    --im-green: 145 63% 38%;
+    --im-gray-bg: 215 20% 97%;
+    --im-gray-text: 215 15% 35%;
+    --im-border: 215 18% 88%;
+    --steel-50: 215 25% 97%;
+    --steel-100: 215 20% 92%;
+    --steel-200: 215 18% 84%;
+    --steel-700: 215 28% 22%;
+    --steel-900: 215 35% 10%;
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
@@ -62,6 +69,103 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Open Sans', sans-serif;
+    font-family: 'Inter', 'Open Sans', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, h4, h5 {
+    font-family: 'Inter', 'Open Sans', sans-serif;
+    letter-spacing: -0.01em;
+  }
+}
+
+@layer utilities {
+  .bg-steel-gradient {
+    background-image:
+      linear-gradient(135deg, hsl(215 35% 10%) 0%, hsl(215 28% 18%) 40%, hsl(215 35% 10%) 100%);
+  }
+  .bg-steel-mesh {
+    background-color: hsl(215 35% 10%);
+    background-image:
+      radial-gradient(at 20% 0%, hsla(28, 95%, 50%, 0.12) 0px, transparent 50%),
+      radial-gradient(at 80% 100%, hsla(210, 70%, 42%, 0.18) 0px, transparent 50%),
+      linear-gradient(180deg, hsl(215 35% 10%) 0%, hsl(215 40% 6%) 100%);
+  }
+  .bg-brushed {
+    background-image: repeating-linear-gradient(
+      90deg,
+      hsla(0, 0%, 100%, 0.02) 0px,
+      hsla(0, 0%, 100%, 0.02) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+  }
+  .text-forge {
+    background: linear-gradient(120deg, hsl(28 95% 55%) 0%, hsl(36 100% 60%) 50%, hsl(28 95% 55%) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, hsla(215, 18%, 88%, 0.5) 1px, transparent 1px),
+      linear-gradient(to bottom, hsla(215, 18%, 88%, 0.5) 1px, transparent 1px);
+    background-size: 36px 36px;
+  }
+  .bg-grid-dark {
+    background-image:
+      linear-gradient(to right, hsla(215, 30%, 25%, 0.4) 1px, transparent 1px),
+      linear-gradient(to bottom, hsla(215, 30%, 25%, 0.4) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+  .ticker-track {
+    animation: ticker 60s linear infinite;
+  }
+  @keyframes ticker {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+  .pulse-dot {
+    animation: pulse-dot 1.6s ease-in-out infinite;
+  }
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.55; transform: scale(0.9); }
+  }
+
+  /* Kantstahl-style brand black surfaces (amber-brand color is registered in Tailwind theme) */
+  .bg-brand-black {
+    background-color: hsl(220 12% 6%);
+  }
+  .bg-brand-near-black {
+    background-color: hsl(220 12% 9%);
+  }
+
+  .hero-letter {
+    font-family: 'Inter', sans-serif;
+    font-weight: 900;
+    color: hsl(34 92% 56%);
+    line-height: 0.78;
+    letter-spacing: -0.06em;
+    user-select: none;
+  }
+
+  /* Reusable Kantstahl-style pill buttons */
+  .btn-pill-amber {
+    @apply inline-flex items-center gap-1.5 rounded-full bg-amber-brand text-zinc-950 px-4 py-2 text-xs font-bold shadow-md hover:bg-amber-300 hover:-translate-y-0.5 transition-all;
+  }
+  .btn-pill-amber-lg {
+    @apply inline-flex items-center gap-2 rounded-full bg-amber-brand text-zinc-950 px-5 py-2.5 text-sm font-bold shadow-lg shadow-amber-brand/20 hover:bg-amber-300 hover:-translate-y-0.5 transition-all;
+  }
+  .btn-pill-outline {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-amber-brand text-amber-brand bg-transparent px-4 py-2 text-xs font-bold hover:bg-amber-brand hover:text-zinc-950 transition-colors;
+  }
+  .btn-pill-dark {
+    @apply inline-flex items-center gap-1.5 rounded-full bg-zinc-950 text-white px-4 py-2 text-xs font-bold hover:bg-zinc-800 transition-colors;
+  }
+  .eyebrow {
+    @apply text-[11px] font-bold uppercase tracking-[0.22em] text-amber-brand;
+  }
+  .heading-display {
+    @apply text-3xl md:text-5xl font-semibold tracking-tight leading-[1.05] text-zinc-950;
   }
 }

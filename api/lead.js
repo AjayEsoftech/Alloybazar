@@ -39,25 +39,30 @@ export default async function handler(req, res) {
     });
   }
 
-  const { name, company, role, email, mobile } = normalizeBody(req.body);
+  const { name, company, role, email, mobile, message } = normalizeBody(req.body);
 
   if (!name || !company || !role || !email || !mobile) {
     return res.status(400).json({ ok: false, error: "Missing required fields." });
   }
 
   try {
+    const leadLines = [
+      `Name: ${name}`,
+      `Company: ${company}`,
+      `Role: ${role}`,
+      `Email: ${email}`,
+      `Mobile: ${mobile}`,
+    ];
+    if (message && String(message).trim().length > 0) {
+      leadLines.push("", "Message / Requirement:", String(message).trim());
+    }
+
     await smtpTransport.sendMail({
       from: process.env.SMTP_FROM,
       to: OWNER_EMAIL,
       replyTo: email,
       subject: `New Alloybazaar lead: ${name} (${company})`,
-      text: [
-        `Name: ${name}`,
-        `Company: ${company}`,
-        `Role: ${role}`,
-        `Email: ${email}`,
-        `Mobile: ${mobile}`,
-      ].join("\n"),
+      text: leadLines.join("\n"),
     });
 
     await smtpTransport.sendMail({
