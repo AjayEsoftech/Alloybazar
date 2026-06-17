@@ -1,11 +1,23 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ArrowUpRight, Menu, X } from "lucide-react";
+import { LogIn, Menu, X } from "lucide-react";
 
 const Header = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+
+  const goToHomeTop = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setOpen(false);
+    if (location.pathname !== "/") {
+      navigate("/");
+    } else {
+      // Clear any #hash so we land cleanly at the top.
+      window.history.replaceState(null, "", "/");
+    }
+    window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+  };
 
   const goToHome = (hash?: string) => {
     setOpen(false);
@@ -33,7 +45,7 @@ const Header = () => {
     <header className="sticky top-0 z-50 bg-zinc-950/95 backdrop-blur border-b border-zinc-800 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 md:px-6">
         <div className="flex items-center gap-4 h-14 md:h-16">
-          <Link to="/" className="flex items-center gap-2 shrink-0 group" aria-label="Alloybazaar home">
+          <Link to="/" onClick={goToHomeTop} className="flex items-center gap-2 shrink-0 group" aria-label="Alloybazaar home">
             <div className="h-8 w-8 rounded-md bg-amber-brand text-zinc-950 flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
               <span className="text-base font-black leading-none">A</span>
             </div>
@@ -63,14 +75,14 @@ const Header = () => {
 
           <div className="flex-1" />
 
-          <button
-            type="button"
-            onClick={() => goToHome("#contact")}
+          <Link
+            to="/portal"
+            onClick={() => setOpen(false)}
             className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-amber-brand text-amber-brand bg-transparent px-4 py-2 text-[13px] font-semibold hover:bg-amber-brand hover:text-zinc-950 transition-colors"
           >
-            Get Early Access
-            <ArrowUpRight className="h-3.5 w-3.5" />
-          </button>
+            Sign In
+            <LogIn className="h-3.5 w-3.5" />
+          </Link>
 
           <button
             type="button"
@@ -106,14 +118,14 @@ const Header = () => {
                   </button>
                 )
               )}
-              <button
-                type="button"
-                onClick={() => goToHome("#contact")}
+              <Link
+                to="/portal"
+                onClick={() => setOpen(false)}
                 className="mt-2 inline-flex items-center justify-center gap-1.5 rounded-full bg-amber-brand text-zinc-950 px-4 py-2.5 font-semibold"
               >
-                Get Early Access
-                <ArrowUpRight className="h-4 w-4" />
-              </button>
+                Sign In
+                <LogIn className="h-4 w-4" />
+              </Link>
             </div>
           </div>
         )}

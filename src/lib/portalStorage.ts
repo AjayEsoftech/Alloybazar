@@ -19,8 +19,13 @@ export type Vendor = {
   email: string;
   phone: string;
   gstin: string;
+  pan: string;
   category: string;
   address: string;
+  kycFileName: string;
+  customerCode: string; // generated on approval (e.g. AB-CUST-0007)
+  creditLimit: number;
+  paymentTerms: string;
   status: "Pending" | "Approved";
   createdAt: string;
 };
@@ -37,6 +42,17 @@ export type Enquiry = {
   createdAt: string;
 };
 
+/** Costing breakdown shown on a quotation (BRD: Quotation Generation). */
+export type QuoteBreakdown = {
+  material: number;
+  cutting: number;
+  loading: number;
+  freight: number;
+  insurance: number;
+  margin: number;
+  gst: number;
+};
+
 export type Quotation = {
   id: ID;
   ref: string;
@@ -46,6 +62,8 @@ export type Quotation = {
   quantity: string;
   unitPrice: number;
   total: number;
+  breakdown?: QuoteBreakdown;
+  leadTime?: string;
   validTill: string;
   status: "Awaiting Approval" | "Approved" | "Rejected";
   createdAt: string;
@@ -60,6 +78,17 @@ export type PurchaseOrder = {
   fileData: string; // base64 data URL
   amount: number;
   status: "Uploaded" | "Acknowledged";
+  createdAt: string;
+};
+
+export type SalesOrder = {
+  id: ID;
+  ref: string;
+  poNumber: string;
+  quotationRef: string;
+  product: string;
+  amount: number;
+  status: "Awaiting Approval" | "Approved" | "Rejected";
   createdAt: string;
 };
 
@@ -105,6 +134,7 @@ export type PortalData = {
   enquiries: Enquiry[];
   quotations: Quotation[];
   purchaseOrders: PurchaseOrder[];
+  salesOrders: SalesOrder[];
   payments: Payment[];
   dispatches: Dispatch[];
   documents: PortalDocument[];
@@ -115,6 +145,7 @@ const emptyData: PortalData = {
   enquiries: [],
   quotations: [],
   purchaseOrders: [],
+  salesOrders: [],
   payments: [],
   dispatches: [],
   documents: [],
@@ -184,6 +215,55 @@ export function nextRef(prefix: string, count: number): string {
   return `AB-${prefix}-${String(count + 1).padStart(4, "0")}`;
 }
 
+/**
+ * The full customer status flow from the BRD. The portal derives the current
+ * stage from the data the customer has generated, rather than storing it.
+ */
+export const CUSTOMER_STATUS_FLOW = [
+  "Registered",
+  "Approved",
+  "Enquiry Received",
+  "Quotation Sent",
+  "Quotation Approved",
+  "PO Received",
+  "PI Generated",
+  "Payment Received",
+  "SO Approved",
+  "Production/Processing",
+  "Dispatch Ready",
+  "Dispatched",
+  "Delivered",
+  "Closed",
+] as const;
+
+export type CustomerStatus = (typeof CUSTOMER_STATUS_FLOW)[number];
+
+/** Derive how far along the BRD journey the customer currently is. */
+export function computeCustomerStatus(data: PortalData): { index: number; stage: CustomerStatus | "Not started" } {
+  let idx = -1;
+  const bump = (i: number, when: boolean) => {
+    if (when && i > idx) idx = i;
+  };
+  bump(0, data.vendors.length > 0);
+  bump(1, data.vendors.some((v) => v.status === "Approved"));
+  bump(2, data.enquiries.length > 0);
+  bump(3, data.quotations.length > 0);
+  bump(4, data.quotations.some((q) => q.status === "Approved"));
+  bump(5, data.purchaseOrders.length > 0);
+  bump(6, data.documents.some((d) => d.type === "PI"));
+  bump(7, data.payments.some((p) => p.status === "Paid"));
+  bump(8, data.salesOrders.some((s) => s.status === "Approved"));
+  const atStage = (s: DispatchStage) => data.dispatches.some((d) => d.stage === s);
+  bump(9, atStage("In Production"));
+  bump(10, atStage("Ready to Ship"));
+  bump(11, atStage("In Transit"));
+  bump(12, atStage("Delivered"));
+  const allDelivered = data.dispatches.length > 0 && data.dispatches.every((d) => d.stage === "Delivered");
+  const allPaid = data.payments.length > 0 && data.payments.every((p) => p.status === "Paid");
+  bump(13, allDelivered && allPaid);
+  return { index: idx, stage: idx >= 0 ? CUSTOMER_STATUS_FLOW[idx] : "Not started" };
+}
+
 const today = () => new Date().toISOString();
 const daysFromNow = (n: number) => {
   const d = new Date();
@@ -191,7 +271,12 @@ const daysFromNow = (n: number) => {
   return d.toISOString();
 };
 
-/** Demo data so a client opening a fresh browser sees a populated portal. */
+/**
+ * Demo data so a client opening a fresh browser sees a populated portal that is
+ * mid-journey: an approved customer with a quotation awaiting their approval.
+ * From here the presenter can drive the rest of the BRD flow live — approve the
+ * quote, upload a PO, pay, approve the SO and track dispatch to delivery.
+ */
 export function buildSeed(): PortalData {
   return {
     vendors: [
@@ -202,8 +287,13 @@ export function buildSeed(): PortalData {
         email: "rajesh@meridiansteel.in",
         phone: "+91 98200 11223",
         gstin: "27ABCDE1234F1Z5",
+        pan: "ABCDE1234F",
         category: "Alloy Steel Bars",
         address: "Plot 14, MIDC Industrial Area, Pune, MH 411019",
+        kycFileName: "meridian-kyc-gst-pan.pdf",
+        customerCode: "AB-CUST-0001",
+        creditLimit: 5000000,
+        paymentTerms: "30 days credit",
         status: "Approved",
         createdAt: daysFromNow(-22),
       },
@@ -231,66 +321,26 @@ export function buildSeed(): PortalData {
         quantity: "12 MT",
         unitPrice: 82500,
         total: 990000,
+        breakdown: {
+          material: 720000,
+          cutting: 42000,
+          loading: 12000,
+          freight: 36000,
+          insurance: 9000,
+          margin: 60000,
+          gst: 111000,
+        },
+        leadTime: "10–12 working days",
         validTill: daysFromNow(7),
         status: "Awaiting Approval",
         createdAt: daysFromNow(-6),
       },
     ],
     purchaseOrders: [],
-    payments: [
-      {
-        id: uid("pay"),
-        ref: "AB-PAY-0001",
-        poNumber: "PO-44021",
-        amount: 990000,
-        paid: 297000,
-        method: "Bank Transfer",
-        status: "Partial",
-        date: daysFromNow(-3),
-      },
-    ],
-    dispatches: [
-      {
-        id: uid("dis"),
-        ref: "AB-DSP-0001",
-        poNumber: "PO-44021",
-        product: "EN8 Round Bar — 12 MT",
-        carrier: "BlueDart Surface",
-        trackingNo: "BD8841200934",
-        stage: "In Transit",
-        eta: daysFromNow(4),
-        updatedAt: daysFromNow(-1),
-      },
-    ],
-    documents: [
-      {
-        id: uid("doc"),
-        type: "PI",
-        number: "PI-2026-0101",
-        relatedTo: "AB-QTN-0001",
-        party: "Meridian Steel Traders",
-        amount: 990000,
-        date: daysFromNow(-6),
-      },
-      {
-        id: uid("doc"),
-        type: "Invoice",
-        number: "INV-2026-0455",
-        relatedTo: "PO-44021",
-        party: "Meridian Steel Traders",
-        amount: 990000,
-        date: daysFromNow(-2),
-      },
-      {
-        id: uid("doc"),
-        type: "E-Way",
-        number: "EWB-3318 4402 9981",
-        relatedTo: "PO-44021",
-        party: "Meridian Steel Traders",
-        amount: 990000,
-        date: daysFromNow(-1),
-      },
-    ],
+    salesOrders: [],
+    payments: [],
+    dispatches: [],
+    documents: [],
   };
 }
 

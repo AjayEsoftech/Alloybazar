@@ -96,12 +96,21 @@ const ProductPage = () => {
 
                 <div className="flex flex-col sm:flex-row gap-3 pt-2">
                   <Button asChild>
-                    <Link to="/#lead">Request a quote / early access</Link>
+                    <Link
+                      to={`/portal?tab=enquiry&product=${encodeURIComponent(product.name)}&grade=${encodeURIComponent(
+                        product.grade ?? "",
+                      )}`}
+                    >
+                      Request a quotation
+                    </Link>
                   </Button>
                   <Button variant="outline" asChild>
                     <Link to={`/category/${category.slug}`}>Back to {category.title}</Link>
                   </Button>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Sign in to the Customer Portal and we&apos;ll pre-fill an enquiry for this product.
+                </p>
               </div>
             </div>
 

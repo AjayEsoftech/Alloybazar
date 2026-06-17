@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Building2,
   FileText,
@@ -10,6 +10,10 @@ import {
   Download,
   RotateCcw,
   Sparkles,
+  LogOut,
+  Route,
+  ClipboardCheck,
+  CheckCircle,
 } from "lucide-react";
 
 import Header from "@/components/Header";
@@ -29,10 +33,14 @@ import {
   uid,
   nextRef,
   downloadDocument,
+  computeCustomerStatus,
+  CUSTOMER_STATUS_FLOW,
   type DispatchStage,
   type DocType,
 } from "@/lib/portalStorage";
 import { StatusBadge, EmptyRow, inr, shortDate } from "@/components/portal/portalUi";
+import { usePortalAuth } from "@/lib/portalAuth";
+import PortalLogin from "@/components/portal/PortalLogin";
 
 const DISPATCH_STAGES: DispatchStage[] = [
   "Order Confirmed",
@@ -48,8 +56,12 @@ const DISPATCH_STAGES: DispatchStage[] = [
 function VendorSection() {
   const { data, update } = usePortalData();
   const { toast } = useToast();
-  const blank = { company: "", contactName: "", email: "", phone: "", gstin: "", category: "", address: "" };
+  const blank = {
+    company: "", contactName: "", email: "", phone: "", gstin: "", pan: "",
+    category: "", address: "", creditLimit: "", paymentTerms: "Advance",
+  };
   const [form, setForm] = useState(blank);
+  const [kyc, setKyc] = useState<File | null>(null);
 
   const set = (k: keyof typeof blank) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -61,18 +73,35 @@ function VendorSection() {
       return;
     }
     update((d) => {
-      d.vendors.unshift({ id: uid("ven"), ...form, status: "Pending", createdAt: new Date().toISOString() });
+      d.vendors.unshift({
+        id: uid("ven"),
+        company: form.company,
+        contactName: form.contactName,
+        email: form.email,
+        phone: form.phone,
+        gstin: form.gstin,
+        pan: form.pan,
+        category: form.category,
+        address: form.address,
+        kycFileName: kyc?.name ?? "",
+        customerCode: "",
+        creditLimit: parseFloat(form.creditLimit) || 0,
+        paymentTerms: form.paymentTerms,
+        status: "Pending",
+        createdAt: new Date().toISOString(),
+      });
     });
     setForm(blank);
-    toast({ title: "Registration submitted", description: `${form.company} is pending approval.` });
+    setKyc(null);
+    toast({ title: "Registration submitted", description: `${form.company} is pending KYC approval.` });
   };
 
   return (
     <div className="grid gap-6 lg:grid-cols-5">
       <Card className="lg:col-span-2">
         <CardHeader>
-          <CardTitle>Register as a vendor</CardTitle>
-          <CardDescription>Submit your company profile for onboarding.</CardDescription>
+          <CardTitle>Customer onboarding</CardTitle>
+          <CardDescription>Register your company, upload KYC and submit for approval.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={submit} className="space-y-3">
@@ -100,13 +129,39 @@ function VendorSection() {
                 <Input value={form.gstin} onChange={set("gstin")} placeholder="27ABCDE1234F1Z5" />
               </div>
               <div className="space-y-1.5">
-                <Label>Product category</Label>
-                <Input value={form.category} onChange={set("category")} placeholder="Alloy Steel Bars" />
+                <Label>PAN</Label>
+                <Input value={form.pan} onChange={set("pan")} placeholder="ABCDE1234F" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Product category</Label>
+              <Input value={form.category} onChange={set("category")} placeholder="Alloy Steel Bars" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Credit limit (₹)</Label>
+                <Input value={form.creditLimit} onChange={set("creditLimit")} placeholder="5000000" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Payment terms</Label>
+                <Select value={form.paymentTerms} onValueChange={(v) => setForm((f) => ({ ...f, paymentTerms: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["Advance", "15 days credit", "30 days credit", "45 days credit", "LC"].map((t) => (
+                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <div className="space-y-1.5">
               <Label>Address</Label>
               <Textarea value={form.address} onChange={set("address")} rows={2} placeholder="Plant / office address" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>KYC document (GST / PAN)</Label>
+              <Input type="file" onChange={(e) => setKyc(e.target.files?.[0] ?? null)} />
+              {kyc && <p className="text-xs text-muted-foreground">{kyc.name}</p>}
             </div>
             <Button type="submit" className="w-full">Submit registration</Button>
           </form>
@@ -115,19 +170,19 @@ function VendorSection() {
 
       <Card className="lg:col-span-3">
         <CardHeader>
-          <CardTitle>Registered vendors</CardTitle>
-          <CardDescription>{data.vendors.length} vendor(s) on file.</CardDescription>
+          <CardTitle>Registered customers</CardTitle>
+          <CardDescription>{data.vendors.length} customer(s) on file.</CardDescription>
         </CardHeader>
         <CardContent>
           {data.vendors.length === 0 ? (
-            <EmptyRow message="No vendors registered yet." />
+            <EmptyRow message="No customers registered yet." />
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Company</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Category</TableHead>
+                  <TableHead>Customer code</TableHead>
+                  <TableHead>KYC</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Action</TableHead>
                 </TableRow>
@@ -137,10 +192,14 @@ function VendorSection() {
                   <TableRow key={v.id}>
                     <TableCell>
                       <div className="font-medium">{v.company}</div>
-                      <div className="text-xs text-muted-foreground">{v.email}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {v.email}
+                        {v.paymentTerms ? <> · {v.paymentTerms}</> : null}
+                        {v.creditLimit ? <> · CL {inr(v.creditLimit)}</> : null}
+                      </div>
                     </TableCell>
-                    <TableCell className="text-sm">{v.contactName || "—"}</TableCell>
-                    <TableCell className="text-sm">{v.category || "—"}</TableCell>
+                    <TableCell className="font-mono text-xs">{v.customerCode || "—"}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{v.kycFileName || "—"}</TableCell>
                     <TableCell><StatusBadge status={v.status} /></TableCell>
                     <TableCell className="text-right">
                       {v.status === "Pending" ? (
@@ -149,10 +208,13 @@ function VendorSection() {
                           variant="outline"
                           onClick={() => update((d) => {
                             const t = d.vendors.find((x) => x.id === v.id);
-                            if (t) t.status = "Approved";
+                            if (!t) return;
+                            t.status = "Approved";
+                            // Customer code is generated on approval (BRD: Customer code generation).
+                            t.customerCode = nextRef("CUST", d.vendors.filter((x) => x.customerCode).length);
                           })}
                         >
-                          Approve
+                          Approve & generate code
                         </Button>
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
@@ -175,8 +237,14 @@ function VendorSection() {
 function EnquirySection() {
   const { data, update } = usePortalData();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
   const blank = { product: "", grade: "", quantity: "", unit: "MT", notes: "" };
-  const [form, setForm] = useState(blank);
+  // Pre-fill from a product page deep-link (e.g. /portal?tab=enquiry&product=EN8 Round Bar).
+  const [form, setForm] = useState(() => ({
+    ...blank,
+    product: searchParams.get("product") ?? "",
+    grade: searchParams.get("grade") ?? "",
+  }));
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -278,6 +346,9 @@ function EnquirySection() {
                             t.status = "Quoted";
                             const price = 80000 + Math.round((en.ref.length * 137) % 9000);
                             const qty = parseFloat(en.quantity) || 1;
+                            const total = price * qty;
+                            // Reverse-engineer a believable cost breakdown (BRD: Quotation Generation).
+                            const base = Math.round(total / 1.18);
                             d.quotations.unshift({
                               id: uid("quo"),
                               ref: nextRef("QTN", d.quotations.length),
@@ -286,7 +357,17 @@ function EnquirySection() {
                               grade: en.grade,
                               quantity: `${en.quantity} ${en.unit}`,
                               unitPrice: price,
-                              total: price * qty,
+                              total,
+                              breakdown: {
+                                material: Math.round(base * 0.7),
+                                cutting: Math.round(base * 0.08),
+                                loading: Math.round(base * 0.02),
+                                freight: Math.round(base * 0.07),
+                                insurance: Math.round(base * 0.03),
+                                margin: Math.round(base * 0.1),
+                                gst: total - base,
+                              },
+                              leadTime: "10–12 working days",
                               validTill: new Date(Date.now() + 7 * 864e5).toISOString(),
                               status: "Awaiting Approval",
                               createdAt: new Date().toISOString(),
@@ -368,11 +449,21 @@ function QuotationSection() {
                   <TableCell>
                     <div className="font-medium">{q.product}</div>
                     <div className="text-xs text-muted-foreground">from {q.enquiryRef}</div>
+                    {q.breakdown && (
+                      <div className="text-[11px] text-muted-foreground mt-1 max-w-[260px] leading-relaxed">
+                        Material {inr(q.breakdown.material)} · Cutting {inr(q.breakdown.cutting)} · Loading{" "}
+                        {inr(q.breakdown.loading)} · Freight {inr(q.breakdown.freight)} · Insurance{" "}
+                        {inr(q.breakdown.insurance)} · Margin {inr(q.breakdown.margin)} · GST {inr(q.breakdown.gst)}
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell className="text-sm">{q.quantity}</TableCell>
                   <TableCell className="text-right text-sm">{inr(q.unitPrice)}</TableCell>
                   <TableCell className="text-right font-medium">{inr(q.total)}</TableCell>
-                  <TableCell className="text-sm">{shortDate(q.validTill)}</TableCell>
+                  <TableCell className="text-sm">
+                    {shortDate(q.validTill)}
+                    {q.leadTime && <div className="text-[11px] text-muted-foreground">Lead: {q.leadTime}</div>}
+                  </TableCell>
                   <TableCell><StatusBadge status={q.status} /></TableCell>
                   <TableCell className="text-right">
                     {q.status === "Awaiting Approval" ? (
@@ -426,7 +517,7 @@ function PoSection() {
           status: "Uploaded",
           createdAt: new Date().toISOString(),
         });
-        // PO upload kicks off payment + dispatch tracking automatically.
+        // PO upload kicks off payment tracking against the proforma invoice.
         if (linked) {
           d.payments.unshift({
             id: uid("pay"),
@@ -438,23 +529,12 @@ function PoSection() {
             status: "Pending",
             date: new Date().toISOString(),
           });
-          d.dispatches.unshift({
-            id: uid("dis"),
-            ref: nextRef("DSP", d.dispatches.length),
-            poNumber,
-            product: `${linked.product} — ${linked.quantity}`,
-            carrier: "To be assigned",
-            trackingNo: "—",
-            stage: "Order Confirmed",
-            eta: new Date(Date.now() + 10 * 864e5).toISOString(),
-            updatedAt: new Date().toISOString(),
-          });
         }
       });
       setPoNumber("");
       setQuotationRef("");
       setFile(null);
-      toast({ title: "PO uploaded", description: "Payment & dispatch tracking has been initiated." });
+      toast({ title: "PO uploaded", description: "Payment tracking has been initiated against the PI." });
     };
     reader.readAsDataURL(file);
   };
@@ -568,6 +648,21 @@ function PaymentSection() {
           amount: p.amount,
           date: new Date().toISOString(),
         });
+        // Full payment generates a Sales Order awaiting customer approval (BRD: SO Approval).
+        const po = d.purchaseOrders.find((x) => x.poNumber === p.poNumber);
+        const quote = po ? d.quotations.find((x) => x.ref === po.quotationRef) : undefined;
+        if (!d.salesOrders.some((s) => s.poNumber === p.poNumber)) {
+          d.salesOrders.unshift({
+            id: uid("so"),
+            ref: nextRef("SO", d.salesOrders.length),
+            poNumber: p.poNumber,
+            quotationRef: quote?.ref ?? po?.quotationRef ?? "—",
+            product: quote ? `${quote.product} — ${quote.quantity}` : p.poNumber,
+            amount: p.amount,
+            status: "Awaiting Approval",
+            createdAt: new Date().toISOString(),
+          });
+        }
       }
     });
     toast({ title: "Payment recorded" });
@@ -642,6 +737,109 @@ function PaymentSection() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* 5b. Sales Order approval                                            */
+/* ------------------------------------------------------------------ */
+function SalesOrderSection() {
+  const { data, update } = usePortalData();
+  const { toast } = useToast();
+
+  const decide = (id: string, approve: boolean) => {
+    update((d) => {
+      const so = d.salesOrders.find((x) => x.id === id);
+      if (!so) return;
+      so.status = approve ? "Approved" : "Rejected";
+      if (!approve) return;
+      // Approving the SO releases the order to operations: start dispatch tracking
+      // and issue the Tax Invoice + E-Way bill (BRD: Logistics & Dispatch).
+      d.dispatches.unshift({
+        id: uid("dis"),
+        ref: nextRef("DSP", d.dispatches.length),
+        poNumber: so.poNumber,
+        product: so.product,
+        carrier: "To be assigned",
+        trackingNo: "—",
+        stage: "Order Confirmed",
+        eta: new Date(Date.now() + 10 * 864e5).toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      d.documents.unshift({
+        id: uid("doc"),
+        type: "Invoice",
+        number: `INV-2026-${String(400 + d.documents.length).slice(-4)}`,
+        relatedTo: so.poNumber,
+        party: data.vendors[0]?.company ?? "Customer",
+        amount: so.amount,
+        date: new Date().toISOString(),
+      });
+      d.documents.unshift({
+        id: uid("doc"),
+        type: "E-Way",
+        number: `EWB-${String(3300 + d.documents.length)} 4402 ${String(9900 + d.documents.length)}`,
+        relatedTo: so.poNumber,
+        party: data.vendors[0]?.company ?? "Customer",
+        amount: so.amount,
+        date: new Date().toISOString(),
+      });
+    });
+    toast({
+      title: approve ? "Sales Order approved" : "Sales Order rejected",
+      description: approve ? "Tax Invoice & E-Way bill issued. Dispatch tracking started." : undefined,
+    });
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Sales Orders</CardTitle>
+        <CardDescription>Approve the Sales Order to release your order to production & dispatch.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {data.salesOrders.length === 0 ? (
+          <EmptyRow message="No sales orders yet. They are raised automatically once a PO is fully paid." />
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Ref</TableHead>
+                <TableHead>Product</TableHead>
+                <TableHead>PO No.</TableHead>
+                <TableHead className="text-right">Amount</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.salesOrders.map((so) => (
+                <TableRow key={so.id}>
+                  <TableCell className="font-mono text-xs">{so.ref}</TableCell>
+                  <TableCell>
+                    <div className="font-medium">{so.product}</div>
+                    <div className="text-xs text-muted-foreground">from {so.quotationRef}</div>
+                  </TableCell>
+                  <TableCell className="text-sm">{so.poNumber}</TableCell>
+                  <TableCell className="text-right font-medium">{inr(so.amount)}</TableCell>
+                  <TableCell><StatusBadge status={so.status} /></TableCell>
+                  <TableCell className="text-right">
+                    {so.status === "Awaiting Approval" ? (
+                      <div className="flex justify-end gap-2">
+                        <Button size="sm" onClick={() => decide(so.id, true)}>Approve SO</Button>
+                        <Button size="sm" variant="outline" onClick={() => decide(so.id, false)}>Reject</Button>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -794,25 +992,122 @@ function DocumentSection() {
 }
 
 /* ------------------------------------------------------------------ */
+/* 0. Order journey / customer status flow                             */
+/* ------------------------------------------------------------------ */
+function OverviewSection() {
+  const { data } = usePortalData();
+  const { index, stage } = useMemo(() => computeCustomerStatus(data), [data]);
+
+  const stats = [
+    { label: "Enquiries", value: data.enquiries.length },
+    { label: "Quotations", value: data.quotations.length },
+    { label: "Sales Orders", value: data.salesOrders.length },
+    { label: "Documents", value: data.documents.length },
+  ];
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-5">
+      <Card className="lg:col-span-3">
+        <CardHeader>
+          <CardTitle>Order journey</CardTitle>
+          <CardDescription>
+            Current status: <span className="font-medium text-foreground">{stage}</span>
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ol className="relative">
+            {CUSTOMER_STATUS_FLOW.map((s, i) => {
+              const done = i < index;
+              const current = i === index;
+              return (
+                <li key={s} className="flex gap-3 pb-4 last:pb-0">
+                  <div className="flex flex-col items-center">
+                    <span
+                      className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold ${
+                        current
+                          ? "bg-primary text-primary-foreground ring-4 ring-primary/15"
+                          : done
+                          ? "bg-emerald-500 text-white"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {done ? <CheckCircle className="h-3.5 w-3.5" /> : i + 1}
+                    </span>
+                    {i < CUSTOMER_STATUS_FLOW.length - 1 && (
+                      <span className={`w-px flex-1 ${i < index ? "bg-emerald-500" : "bg-border"}`} />
+                    )}
+                  </div>
+                  <div className={`pt-0.5 text-sm ${current ? "font-semibold" : done ? "text-foreground" : "text-muted-foreground"}`}>
+                    {s}
+                    {current && <span className="ml-2 text-xs text-primary">● you are here</span>}
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </CardContent>
+      </Card>
+
+      <div className="lg:col-span-2 space-y-6">
+        <div className="grid grid-cols-2 gap-4">
+          {stats.map((s) => (
+            <Card key={s.label}>
+              <CardContent className="pt-6">
+                <div className="text-sm text-muted-foreground">{s.label}</div>
+                <div className="text-2xl font-semibold mt-1">{s.value}</div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">How it works</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground space-y-2">
+            <p>Use the tabs to move through the procurement flow:</p>
+            <p>
+              Onboard &amp; get approved → submit an enquiry → approve the quotation → upload your PO →
+              pay against the PI → approve the Sales Order → track dispatch → download documents.
+            </p>
+            <p>Every action you take advances the status above automatically.</p>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Portal shell                                                        */
 /* ------------------------------------------------------------------ */
 const TABS = [
-  { value: "vendor", label: "Vendor", icon: Building2, el: <VendorSection /> },
+  { value: "overview", label: "Journey", icon: Route, el: <OverviewSection /> },
+  { value: "vendor", label: "Onboarding", icon: Building2, el: <VendorSection /> },
   { value: "enquiry", label: "Enquiry", icon: FileText, el: <EnquirySection /> },
   { value: "quotation", label: "Quotation", icon: CheckCircle2, el: <QuotationSection /> },
   { value: "po", label: "PO Upload", icon: Upload, el: <PoSection /> },
   { value: "payment", label: "Payments", icon: Wallet, el: <PaymentSection /> },
+  { value: "salesorder", label: "Sales Order", icon: ClipboardCheck, el: <SalesOrderSection /> },
   { value: "dispatch", label: "Dispatch", icon: Truck, el: <DispatchSection /> },
   { value: "documents", label: "Documents", icon: Download, el: <DocumentSection /> },
 ];
 
 const PortalPage = () => {
   const { reset, seed } = usePortalData();
+  const { session, isAuthenticated, logout } = usePortalAuth();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, []);
+
+  // Allow deep-linking to a specific tab, e.g. /portal?tab=enquiry from a product page.
+  const requestedTab = searchParams.get("tab");
+  const initialTab = TABS.some((t) => t.value === requestedTab) ? (requestedTab as string) : "overview";
+
+  // Static onboarding gate — show the login / sign-up screen until authenticated.
+  if (!isAuthenticated) return <PortalLogin />;
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
@@ -832,6 +1127,13 @@ const PortalPage = () => {
                   Manage your end-to-end procurement — from vendor onboarding and enquiries to quotations,
                   purchase orders, payments, dispatch and documents. All in one place.
                 </p>
+                {session && (
+                  <p className="text-sm text-zinc-300 pt-1">
+                    Signed in as <span className="font-medium text-white">{session.name}</span>
+                    {session.company ? <> · {session.company}</> : null}
+                    <span className="text-zinc-500"> ({session.email})</span>
+                  </p>
+                )}
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" className="bg-transparent text-white border-zinc-700 hover:bg-white/10"
@@ -842,6 +1144,10 @@ const PortalPage = () => {
                   onClick={() => { reset(); toast({ title: "Portal cleared" }); }}>
                   <RotateCcw className="h-3.5 w-3.5 mr-1" /> Reset
                 </Button>
+                <Button variant="outline" size="sm" className="bg-transparent text-white border-zinc-700 hover:bg-white/10"
+                  onClick={() => { logout(); toast({ title: "Signed out" }); }}>
+                  <LogOut className="h-3.5 w-3.5 mr-1" /> Sign out
+                </Button>
               </div>
             </div>
           </div>
@@ -849,7 +1155,7 @@ const PortalPage = () => {
 
         <section className="py-8 md:py-10">
           <div className="max-w-7xl mx-auto px-4">
-            <Tabs defaultValue="vendor">
+            <Tabs defaultValue={initialTab}>
               <TabsList className="flex flex-wrap h-auto justify-start gap-1 bg-muted/60 p-1">
                 {TABS.map((t) => (
                   <TabsTrigger key={t.value} value={t.value} className="gap-1.5 data-[state=active]:bg-background">

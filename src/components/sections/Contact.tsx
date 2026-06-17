@@ -1,4 +1,5 @@
 import { Mail, Phone, MapPin } from "lucide-react";
+import { Link } from "react-router-dom";
 import LeadForm from "@/components/LeadForm";
 import Reveal from "@/components/Reveal";
 
@@ -8,11 +9,15 @@ const Contact = () => {
       <div className="max-w-7xl mx-auto px-4 md:px-6 grid gap-10 md:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] items-start">
         <Reveal variant="slide-right" className="space-y-6">
           <div className="space-y-3">
-            <p className="eyebrow">Get in touch</p>
-            <h2 className="heading-display">Let&apos;s get started</h2>
+            <p className="eyebrow">Get early access</p>
+            <h2 className="heading-display">Request early access</h2>
             <p className="text-sm md:text-base text-zinc-600 leading-relaxed">
-              Whether you&apos;re a rolling mill, supplier or end user — we&apos;re here to help you succeed. Drop us a
-              message or schedule a demo and our team will get back to you.
+              Whether you&apos;re a rolling mill, supplier or end user — register your interest below and our team will
+              reach out as Alloybazaar early access opens up. Already onboarded?{" "}
+              <Link to="/portal" className="font-semibold text-amber-brand hover:underline">
+                Sign in to your portal
+              </Link>
+              .
             </p>
           </div>
 
